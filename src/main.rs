@@ -1,13 +1,17 @@
-use crate::bin_day::{CouncilBinCalendar, moray_council::MorayCouncilBinCalendar};
+use std::env;
+
+use crate::bin_day::CouncilBinCalendar;
+use crate::councils::moray_council::MorayCouncilBinCalendar;
 
 fn main() {
-    let council = get_council_calendar();
-    let next_day = council.get_next_bin_day();
+    let args = env::args().collect::<Vec<_>>();
+    let (_, brgs) = args.split_at(1);
+    let council = get_council_calendar(&brgs);
+    let next_day = council.and_then(|c| c.get_next_bin_day());
 
     match next_day {
         Some(day) => println!(
             "Next bin day is {} for {}",
-            // day.date.format("%s %e %b"),
             day.date.to_string(),
             day.types.join(", "),
         ),
@@ -15,45 +19,30 @@ fn main() {
     }
 }
 
-fn get_council_calendar() -> impl CouncilBinCalendar {
-    MorayCouncilBinCalendar::new()
+fn get_council_calendar(args: &[String]) -> Option<impl CouncilBinCalendar> {
+    let (council_name, rest) = args.split_first()?;
+
+    match council_name.as_str() {
+        "moray" => MorayCouncilBinCalendar::new(rest),
+        _ => None,
+    }
 }
 
 mod bin_day {
-    use chrono::NaiveDate;
+    use chrono::{DateTime, Utc};
 
+    #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
     pub struct BinDay {
-        pub date: NaiveDate,
+        pub date: DateTime<Utc>,
         pub types: Vec<String>,
     }
 
     pub trait CouncilBinCalendar {
+        fn new(args: &[String]) -> Option<Self>
+        where
+            Self: Sized;
         fn get_next_bin_day(&self) -> Option<BinDay>;
     }
-
-    pub mod moray_council {
-        use chrono::{Days, Utc};
-
-        use crate::bin_day::{BinDay, CouncilBinCalendar};
-
-        pub struct MorayCouncilBinCalendar {}
-
-        impl MorayCouncilBinCalendar {
-            pub fn new() -> Self {
-                Self {}
-            }
-        }
-
-        impl CouncilBinCalendar for MorayCouncilBinCalendar {
-            // https://bindayfinder.moray.gov.uk/cal_2026_view.php?id={{id}}
-            fn get_next_bin_day(&self) -> Option<BinDay> {
-                let future_date = Utc::now().checked_add_days(Days::new(5)).unwrap();
-                let next_day = BinDay {
-                    date: future_date.date_naive(),
-                    types: vec![String::from("green")],
-                };
-                Some(next_day)
-            }
-        }
-    }
 }
+
+pub mod councils;
